@@ -19,6 +19,8 @@ from tkinter import font as tk_font
 from PIL import Image, ImageTk
 import math
 from pyperclip import copy
+from io import BytesIO
+import win32clipboard
 
 
 class ExecutionMode(Enum):
@@ -31,6 +33,11 @@ class ExecutionMode(Enum):
     Concurrent_Thread_Endless = auto()
     Concurrent_Process_Endless = auto()
     Async_Endless = auto()
+
+
+class ReturnType(Enum):
+    Str = auto()
+    Image = auto()
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -110,9 +117,10 @@ class QuickToolBar:
         if type(mode) is not ExecutionMode:  # 检查mode
             raise TypeError(
                 "mode is not an instance of ExecutionMode, Please define using the ExecutionMode enum type.")
-        if not ((returnType is None) or (returnType in [str])):
+        if not ((returnType is None) or (returnType in [ReturnType.Str, ReturnType.Image])):
             raise TypeError(f"You are attempting to use {returnType} as the return format, which is currently "
-                            f"not supported. Only \'str\' or \'None\' are accepted as return types.")
+                            f"not supported. Only \'ReturnType.Str\' or \'ReturnType.Image\' "
+                            f"are accepted as return types.")
         if not ((icon is None) or (type(icon) is str)):
             raise TypeError("Please use None to indicate the absence of an Icon, "
                             "or use a string to specify the file path for the Icon image.")
@@ -185,10 +193,9 @@ class QuickToolBar:
                         # 输出正常运行日志
                         self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
                         logging.info(f"{name}..............has been executed successfully.")
-
                 button.config(command=ButtonFunction)
             # ExecutionMode.Api - str
-            elif returnType is str:
+            elif returnType is ReturnType.Str:
                 def ButtonFunction():
                     try:
                         # 执行对象获取返回文字
@@ -203,21 +210,20 @@ class QuickToolBar:
                                           f"return statement.")
                             return
                         # 确认返回数据类型正确
-                        if type(returnData) is not returnType:
+                        if type(returnData) is not str:
                             # 调出错误提示，窗口提示
                             self.__LoggingWindow(f"{name}..............The returned data type is incorrect. "
                                                  f"See the console for detailed information. ", "error")
                             logging.error(f"While invoking the method named \'{name}\', "
                                           f"the returned data type is {type(returnData)} instead "
-                                          f"of {returnType}. Please confirm whether the method is returning data "
-                                          f"of the {returnType} type.")
+                                          f"of str. Please confirm whether the method is returning data "
+                                          f"of the str type.")
                             return
                         # 确认返回数据正确后，执行跳出窗口
                         window = tk.Toplevel(self.root)
                         basicTools_frame = self.__DefaultWindowSetting(window)
 
                         # 创建复制按钮
-
                         def copyCommand():
                             copy(returnData)
                             self.__LoggingWindow("The content has been copied to the clipboard.", "succeed")
@@ -226,7 +232,8 @@ class QuickToolBar:
                                                bg=self.__colors['bg2'], borderwidth=0, highlightthickness=0,
                                                activebackground=self.__colors['bg2'])
                         copyButton.pack(side="bottom", expand=False)
-                        # 显示返回文字
+
+                        # 创建窗口
                         textLabel = tk.Label(window, text=returnData, bg=self.__colors['bg'], fg=self.__colors['fg'])
                         textLabel.pack(side="left", expand=False)
                         self.__CenterWindow(window)
@@ -234,12 +241,87 @@ class QuickToolBar:
                         self.__LoggingWindow(f"{name}..............An error occurred while executing. "
                                              f"See the console for detailed information.", "error")
                         logging.error(f"An error occurred while executing {name}.")
+                        raise
                     else:
                         # 输出正常运行日志
                         self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
                         logging.info(f"{name}..............has been executed successfully.")
-
                 button.config(command=ButtonFunction)
+
+            elif returnType is ReturnType.Image:
+                def ButtonFunction():
+                    try:
+                        returnData = command()
+                        # 若没有获得返回
+                        if returnData is None:
+                            # 调出错误提示，窗口提示
+                            self.__LoggingWindow(f"{name}..............Failed to obtain the return data from "
+                                                 f"the method. See the console for detailed information. ", "error")
+                            logging.error(f"While executing the method named \"{name}\", failed to retrieve the "
+                                          f"method's return data. Please ensure the method has a defined "
+                                          f"return statement.")
+                            return
+                        # 确认返回数据类型正确
+                        if not isinstance(returnData, Image.Image):
+                            # 调出错误提示，窗口提示
+                            self.__LoggingWindow(f"{name}..............The returned data type is incorrect. "
+                                                 f"See the console for detailed information. ", "error")
+                            logging.error(f"While invoking the method named \'{name}\', "
+                                          f"the returned data type is {type(returnData)} instead "
+                                          f"of Image. Please confirm whether the method is returning data "
+                                          f"of the str Image.")
+                            return
+                        # 确认返回数据正确后，执行跳出窗口
+                        window = tk.Toplevel(self.root)
+                        basicTools_frame = self.__DefaultWindowSetting(window)
+
+                        # 创建复制按钮命令
+                        window.returnData = returnData
+
+                        def copyCommand():
+                            self.__send_to_clipboard(window.returnData)
+                            self.__LoggingWindow("The content has been copied to the clipboard.", "succeed")
+
+                        # 创建复制按钮
+                        copyButton = tk.Button(basicTools_frame, image=self.__copyIcon, command=copyCommand,
+                                               bg=self.__colors['bg2'], borderwidth=0, highlightthickness=0,
+                                               activebackground=self.__colors['bg2'])
+                        copyButton.pack(side="bottom", expand=False)
+
+                        # 若图片大小大于屏幕的1/3，则将其缩小为窗口的1/3之内
+                        if returnData.size[0]>self.root.winfo_screenwidth()/3:
+                            wx = self.root.winfo_screenwidth()/3
+                            wy = wx*returnData.size[1]/returnData.size[0]
+                            wx, wy = int(wx), int(wy)
+                            returnData = returnData.resize((wx, wy), Image.Resampling.BILINEAR)
+                            logging.info(
+                                "The image has been scaled down to within one-third of the screen for better display.")
+                        if returnData.size[1]>self.root.winfo_screenheight()/3:
+                            wy = self.root.winfo_screenheight()/3
+                            wx = wy*returnData.size[0]/returnData.size[1]
+                            wx, wy = int(wx), int(wy)
+                            returnData = returnData.resize((wx, wy), Image.Resampling.BILINEAR)
+                            logging.info(
+                                "The image has been scaled down to within one-third of the screen for better display.")
+
+                        # 创建窗口
+                        window.tkImage = ImageTk.PhotoImage(returnData)
+                        imageLabel = tk.Label(window, image=window.tkImage, bg=self.__colors['bg'], fg=self.__colors['fg'])
+                        imageLabel.pack(side="left", expand=False)
+                        self.__CenterWindow(window)
+
+                    except:
+                        self.__LoggingWindow(f"{name}..............An error occurred while executing. "
+                                             f"See the console for detailed information.", "error")
+                        logging.error(f"An error occurred while executing {name}.")
+                        raise
+                    else:
+                        # 输出正常运行日志
+                        self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
+                        logging.info(f"{name}..............has been executed successfully.")
+                button.config(command=ButtonFunction)
+                pass
+
         # endregion
 
     # 跳出屏幕信息显示视窗
@@ -357,6 +439,19 @@ class QuickToolBar:
         window.geometry(f"+{int((window.winfo_screenwidth() - window.winfo_width()) / 2)}"
                         f"+{int((window.winfo_screenheight() - window.winfo_height()) / 2)}")
         return
+
+    # Copy image to Clipboard method from https://stackoverflow.com/questions/34322132/copy-image-to-clipboard
+    @staticmethod
+    def __send_to_clipboard(image):
+        output = BytesIO()
+        image.convert('RGB').save(output, 'BMP')
+        data = output.getvalue()[14:]
+        output.close()
+
+        win32clipboard.OpenClipboard()
+        win32clipboard.EmptyClipboard()
+        win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
+        win32clipboard.CloseClipboard()
 
 
 # region 快速接入系统
