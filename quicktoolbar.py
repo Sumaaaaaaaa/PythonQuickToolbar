@@ -1,6 +1,5 @@
 """
 TODO BUG
-# 文字窗口背景色和颜色背景色不统一
 # 在不同的屏幕刷新率下，Logging窗口的跳出时间是不同的，60FPS下会很慢
 TODO
 *. 预设功能：时钟
@@ -23,7 +22,7 @@ from io import BytesIO
 import win32clipboard
 
 
-class ExecutionMode(Enum):
+class Mode(Enum):
     Api = auto()
     Concurrent_Thread = auto()
     Concurrent_Process = auto()
@@ -36,7 +35,7 @@ class ExecutionMode(Enum):
 
 
 class ReturnType(Enum):
-    Str = auto()
+    String = auto()
     Image = auto()
 
 
@@ -44,7 +43,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 class QuickToolBar:
-    # region 变量/枚举/错误
+    # region 变量/错误
     __root = None  # 根窗口
     __window_height = -1  # 根窗口高度 （位于基本数据变量设置）
     __window_length = -1  # 根窗口长度 （位于基本数据变量设置）
@@ -96,12 +95,13 @@ class QuickToolBar:
         # 设置窗口尺寸
         self.root.geometry(str(self.__window_length) + "x" + str(self.__window_height))
 
-    # 运行系统
+    # *运行系统*
     def run(self):
         self.root.mainloop()
         logging.info("The basic window has been created successfully.")
 
-    def createButton(self, name: str, command, mode: ExecutionMode, returnType=None, icon=None, group=None) -> None:
+    # *创建按钮*
+    def createButton(self, name: str, command, mode: Mode, returnType=None, icon=None, group=None) -> None:
         # region 检查错误
         # 挨个检查输入参数的类型
         if type(name) is not str:  # 检查name
@@ -114,12 +114,12 @@ class QuickToolBar:
             raise ValueError("command cannot be None")
         elif not callable(command):
             raise TypeError("The passed data to command is not a callable data")
-        if type(mode) is not ExecutionMode:  # 检查mode
+        if type(mode) is not Mode:  # 检查mode
             raise TypeError(
-                "mode is not an instance of ExecutionMode, Please define using the ExecutionMode enum type.")
-        if not ((returnType is None) or (returnType in [ReturnType.Str, ReturnType.Image])):
+                "mode is not an instance of \'Mode\', Please define using the \'Mode\' enum type.")
+        if not ((returnType is None) or (returnType in [ReturnType.String, ReturnType.Image])):
             raise TypeError(f"You are attempting to use {returnType} as the return format, which is currently "
-                            f"not supported. Only \'ReturnType.Str\' or \'ReturnType.Image\' "
+                            f"not supported. Only \'ReturnType.String\' or \'ReturnType.Image\' "
                             f"are accepted as return types.")
         if not ((icon is None) or (type(icon) is str)):
             raise TypeError("Please use None to indicate the absence of an Icon, "
@@ -177,8 +177,8 @@ class QuickToolBar:
         # endregion
 
         # region 根据模式分开处理
-        if mode is ExecutionMode.Api:
-            # ExecutionMode.Api - None
+        if mode is Mode.Api:
+            # Mode.Api - None
             if returnType is None:
                 def ButtonFunction():
                     # 执行方法
@@ -192,10 +192,10 @@ class QuickToolBar:
                     else:
                         # 输出正常运行日志
                         self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
-                        logging.info(f"{name}..............has been executed successfully.")
+                        logging.debug(f"{name}..............has been executed successfully.")
                 button.config(command=ButtonFunction)
-            # ExecutionMode.Api - str
-            elif returnType is ReturnType.Str:
+            # Mode.Api - str
+            elif returnType is ReturnType.String:
                 def ButtonFunction():
                     try:
                         # 执行对象获取返回文字
@@ -234,7 +234,7 @@ class QuickToolBar:
                         copyButton.pack(side="bottom", expand=False)
 
                         # 创建窗口
-                        textLabel = tk.Label(window, text=returnData, bg=self.__colors['bg'], fg=self.__colors['fg'])
+                        textLabel = tk.Label(window, text=returnData, bg=self.__colors['bg'], fg=self.__colors['fg'], justify="left")
                         textLabel.pack(side="left", expand=False)
                         self.__CenterWindow(window)
                     except:
@@ -245,7 +245,7 @@ class QuickToolBar:
                     else:
                         # 输出正常运行日志
                         self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
-                        logging.info(f"{name}..............has been executed successfully.")
+                        logging.debug(f"{name}..............has been executed successfully.")
                 button.config(command=ButtonFunction)
 
             elif returnType is ReturnType.Image:
@@ -318,9 +318,8 @@ class QuickToolBar:
                     else:
                         # 输出正常运行日志
                         self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
-                        logging.info(f"{name}..............has been executed successfully.")
+                        logging.debug(f"{name}..............has been executed successfully.")
                 button.config(command=ButtonFunction)
-                pass
 
         # endregion
 
@@ -358,7 +357,7 @@ class QuickToolBar:
         # 设置窗口大小
         stringLengthPx = tk_font.nametofont(showText.cget("font")).measure(text) + 10
         stringHeightPx = tk_font.nametofont(showText.cget("font")).metrics("linespace")
-        # 获取鼠标位置
+        # 获取鼠标位置，并生成在鼠标位置
         mouseX, mouseY = self.root.winfo_pointerxy()
         window.geometry(
             str(stringLengthPx) + 'x' + str(stringHeightPx)
@@ -372,6 +371,11 @@ class QuickToolBar:
         """
         # 在一定时间后自动关闭
         window.after(stayTime, window.destroy)
+        
+        # 添加鼠标点击时关闭效果
+        def on_click(event):
+            window.destroy()
+        window.bind("<Button-1>", on_click)
 
         # 添加文字逐字显示效果
         def reveal_text(label, text, idx=0):
@@ -465,8 +469,16 @@ def run():
 
 
 # 添加按钮方法
-def createButton(name: str, command, mode: ExecutionMode, returnType=None, icon=None, group=None) -> None:
+def createButton(name: str, command, mode: Mode, returnType=None, icon=None, group=None) -> None:
     root.createButton(name, command, mode, returnType, icon, group)
     return
 
+# endregion
+
+# region 测试
+if __name__ == '__main__':
+    def a():
+        return "afhiahgfohgfaohglaskjdga\najsdhgfaodhfkajldkf\nahfoahoefjhia\nasgtaegtaetr"
+    createButton(name='a',command=a,mode=Mode.Api,returnType=ReturnType.String)
+    run()
 # endregion
