@@ -45,14 +45,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 class QuickToolBar:
     # region 变量/错误
     __root = None  # 根窗口
-    __window_height = -1  # 根窗口高度 （位于基本数据变量设置）
-    __window_length = -1  # 根窗口长度 （位于基本数据变量设置）
+    __manageWindow, __manageWindow_mainFrame = None, None  # 管理窗口
+    __window_height, __window_length = -1, -1  # 根窗口高度，长度 （位于基本数据变量设置）
     __basicButtons_size = -1  # 关闭和移动按钮的大小 （位于基本数据变量设置）
     __tools_length = -1  # 除去关闭和移动区域外的工具栏的长度
     # icon图片
-    __moveIcon = None  # 移动Icon图片 （位于基本数据变量设置）
-    __closeIcon = None  # 关闭Icon图片 （位于基本数据变量设置）
-    __copyIcon = None  # 复制Icon图片 （位于基本数据变量设置）
+    __moveIcon, __closeIcon, __copyIcon = None, None, None  # 移动，关闭，复制Icon图片 （位于基本数据变量设置）
     __create_content_dataset = dict()  # 创建内容数据集
     __colors = {'bg': 'white', 'fg': 'black', 'bg2': "gray"}  # 颜色设计
 
@@ -101,7 +99,7 @@ class QuickToolBar:
         logging.info("The basic window has been created successfully.")
 
     # *创建按钮*
-    def createButton(self, name: str, command, mode: Mode, returnType=None, icon=None, group=None) -> None:
+    def createButton(self, name: str, command, mode: Mode, returnType=None, icon=None, group=None, delay=None,loopDelay=None) -> None:
         # region 检查错误
         # 挨个检查输入参数的类型
         if type(name) is not str:  # 检查name
@@ -110,23 +108,49 @@ class QuickToolBar:
                 f"for name. The name will be automatically converted to the string \"{str(name)}\""
                 f", but it is not recommended to use non-string objects for the name parameter.")
             name = str(name)
+        # command
         if command is None:  # 检查command是否为空或非方法对象
             raise ValueError("command cannot be None")
         elif not callable(command):
             raise TypeError("The passed data to command is not a callable data")
+        # mode
         if type(mode) is not Mode:  # 检查mode
             raise TypeError(
                 "mode is not an instance of \'Mode\', Please define using the \'Mode\' enum type.")
+        # returnType
         if not ((returnType is None) or (returnType in [ReturnType.String, ReturnType.Image])):
             raise TypeError(f"You are attempting to use {returnType} as the return format, which is currently "
                             f"not supported. Only \'ReturnType.String\' or \'ReturnType.Image\' "
                             f"are accepted as return types.")
+        # icon
         if not ((icon is None) or (type(icon) is str)):
             raise TypeError("Please use None to indicate the absence of an Icon, "
                             "or use a string to specify the file path for the Icon image.")
+        # group
         if group is not None:
             raise TypeError("Group functionality is currently not supported, please wait for an update.")
-
+        # delay
+        if mode is Mode.Api_Repeat:
+            if delay is None:
+                raise TypeError("When using the Api_Repeat mode, you must specify the \'delay\' parameter. Set the delay parameter to an {int} object with units in milliseconds.")
+            elif type(delay) is not int:
+                raise TypeError(f"When using the Api_Repeat mode, you must specify the \'delay\' parameter as an {int} object with units in milliseconds instead {type(delay)}.")
+            elif delay <= 0:
+                raise ValueError(f"When using the Api_Repeat mode, the \'delay\' parameter must be greater than 0, but you specified {delay}.")
+        else:
+            if delay is not None:
+                raise TypeError("The \'delay\' parameter is only valid when using the Api_Repeat mode. Set it to \'None\' or leave it unset.")
+        # loopDelay
+        if mode is Mode.Api_Repeat:
+            if loopDelay is None:
+                raise TypeError("When using the Api_Repeat mode, you must specify the \'loopDelay\' parameter. Set the loopDelay parameter to an {int} object with units in milliseconds.")
+            elif type(loopDelay) is not int:
+                raise TypeError(f"When using the Api_Repeat mode, you must specify the \'loopDelay\' parameter as an {int} object with units in milliseconds instead {type(loopDelay)}.")
+            elif loopDelay <= 0:
+                raise ValueError(f"When using the Api_Repeat mode, the \'loopDelay\' parameter must be greater than 0, but you specified {loopDelay}.")
+        else:
+            if loopDelay is not None:
+                raise TypeError("The \'loopDelay\' parameter is only valid when using the Api_Repeat mode. Set it to \'None\' or leave it unset.")
         # 检查是否方法重名
         if name in self.__create_content_dataset:
             raise QuickToolBar.__DuplicateButtonName(name)
@@ -320,9 +344,38 @@ class QuickToolBar:
                         self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
                         logging.debug(f"{name}..............has been executed successfully.")
                 button.config(command=ButtonFunction)
-
+        """
+        if mode is Mode.Api_Repeat:
+            # Mode.Api_Repeat - str
+            if returnType is None:
+                pass
+        """
         # endregion
-
+    # 管理窗口
+    def ManageWindow_test(self):
+        self.__ManageWindow("add")
+    def __ManageWindow(self, action:str) -> None:
+        if not (action in ["add"]):
+            raise ValueError("内部错误：在调用__ManageWindow方法时，使用了错误的action字符串。")
+        # 若不存在管理窗口，则创建
+        if self.__manageWindow is None:
+            # 创建管理窗口
+            self.__manageWindow = tk.Toplevel(self.root)
+            # 进行基本设置
+            basicFrame = self.__DefaultWindowSetting(self.__manageWindow)
+            # 创建另一个区域用于显示内容
+            self.__manageWindow_mainFrame = tk.Frame(self.__manageWindow)
+            self.__manageWindow_mainFrame.pack(side="left", expand=True, fill="both")
+        # 添加一个空白块，用于刷新提示
+        reflashcall = tk.Label(self.__manageWindow_mainFrame,text='R')
+        reflashcall.grid(row=0,column=0,ipadx=20,ipady=20)
+        self.__manageWindow_mainFrame
+        """
+        像这样进行Grid管理
+        button2 = tk.Button(mainFrame, text="Button 2")
+        button2.grid(row=0, column=0)
+        """
+        pass
     # 跳出屏幕信息显示视窗
     def __LoggingWindow(self, text: str, level: str) -> None:
         # 根据状态，设置数据
@@ -411,7 +464,7 @@ class QuickToolBar:
         # 创建一个关闭窗口用的按钮
         def close_window():
             window.destroy()
-            logging.info("The window has been closed.")
+            logging.debug("The window has been closed.")
 
         close_button = tk.Button(basicTools_frame, image=self.__closeIcon, command=close_window,
                                  bg=self.__colors['bg2'])
@@ -469,16 +522,8 @@ def run():
 
 
 # 添加按钮方法
-def createButton(name: str, command, mode: Mode, returnType=None, icon=None, group=None) -> None:
-    root.createButton(name, command, mode, returnType, icon, group)
+def createButton(name: str, command, mode: Mode, returnType=None, icon=None, group=None,delay=None,loopDelay=None) -> None:
+    root.createButton(name, command, mode, returnType, icon, group, delay, loopDelay)
     return
 
-# endregion
-
-# region 测试
-if __name__ == '__main__':
-    def a():
-        return "afhiahgfohgfaohglaskjdga\najsdhgfaodhfkajldkf\nahfoahoefjhia\nasgtaegtaetr"
-    createButton(name='a',command=a,mode=Mode.Api,returnType=ReturnType.String)
-    run()
 # endregion
