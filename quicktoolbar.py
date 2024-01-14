@@ -44,14 +44,23 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 class QuickToolBar:
     # region 变量/错误
+    # 窗口对象
     __root = None  # 根窗口
     __manageWindow, __manageWindow_mainFrame = None, None  # 管理窗口
+    
+    # 窗口数据
     __window_height, __window_length = -1, -1  # 根窗口高度，长度 （位于基本数据变量设置）
     __basicButtons_size = -1  # 关闭和移动按钮的大小 （位于基本数据变量设置）
     __tools_length = -1  # 除去关闭和移动区域外的工具栏的长度
+    
     # icon图片
     __moveIcon, __closeIcon, __copyIcon = None, None, None  # 移动，关闭，复制Icon图片 （位于基本数据变量设置）
-    __create_content_dataset = dict()  # 创建内容数据集
+    
+    # 创建内容存储
+    __root_content_dataset = dict()  # 创建内容数据集
+    __manager_content_dataset = []  # 管理内容数据集
+    
+    # 颜色设计
     __colors = {'bg': 'white', 'fg': 'black', 'bg2': "gray"}  # 颜色设计
 
     class __DuplicateButtonName(NameError):  # 命名重复错误
@@ -152,12 +161,12 @@ class QuickToolBar:
             if loopDelay is not None:
                 raise TypeError("The \'loopDelay\' parameter is only valid when using the Api_Repeat mode. Set it to \'None\' or leave it unset.")
         # 检查是否方法重名
-        if name in self.__create_content_dataset:
+        if name in self.__root_content_dataset:
             raise QuickToolBar.__DuplicateButtonName(name)
 
         # endregion
         # 在数据集中创建署名字典
-        self.__create_content_dataset[name] = dict()
+        self.__root_content_dataset[name] = dict()
         # region 创建按钮
         # 创建按钮
         if icon is not None:
@@ -173,9 +182,9 @@ class QuickToolBar:
             icon = icon.resize((int(width * 4 / 5), int(height * 4 / 5)), Image.Resampling.NEAREST)
             icon_tk = ImageTk.PhotoImage(icon)
             # 在数据集中，创建icon数据
-            self.__create_content_dataset[name]["icon"] = icon_tk
+            self.__root_content_dataset[name]["icon"] = icon_tk
             # 将按钮的图片设置为输入的icon，并增加主窗口的大小
-            button.config(image=self.__create_content_dataset[name]["icon"], width=width,
+            button.config(image=self.__root_content_dataset[name]["icon"], width=width,
                           height=self.__window_height)
             self.__window_length += width
             self.root.geometry(f"{self.__window_length}x{self.__window_height}")
@@ -344,6 +353,7 @@ class QuickToolBar:
                         self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
                         logging.debug(f"{name}..............has been executed successfully.")
                 button.config(command=ButtonFunction)
+        # TODO
         """
         if mode is Mode.Api_Repeat:
             # Mode.Api_Repeat - str
@@ -354,6 +364,7 @@ class QuickToolBar:
     # 管理窗口
     def ManageWindow_test(self):
         self.__ManageWindow("add")
+    # TODO
     def __ManageWindow(self, action:str) -> None:
         if not (action in ["add"]):
             raise ValueError("内部错误：在调用__ManageWindow方法时，使用了错误的action字符串。")
@@ -366,15 +377,21 @@ class QuickToolBar:
             # 创建另一个区域用于显示内容
             self.__manageWindow_mainFrame = tk.Frame(self.__manageWindow)
             self.__manageWindow_mainFrame.pack(side="left", expand=True, fill="both")
+       
         # 添加一个空白块，用于刷新提示
         reflashcall = tk.Label(self.__manageWindow_mainFrame,text='R')
-        reflashcall.grid(row=0,column=0,ipadx=20,ipady=20)
-        self.__manageWindow_mainFrame
-        """
-        像这样进行Grid管理
-        button2 = tk.Button(mainFrame, text="Button 2")
-        button2.grid(row=0, column=0)
-        """
+        
+        # 计算字符串长度和高度，并设置
+        stringLengthPx = tk_font.nametofont(reflashcall.cget("font")).measure('R')
+        stringHeightPx = tk_font.nametofont(reflashcall.cget("font")).metrics("linespace")
+        
+        # 计算行数，并设置
+        rowIndex = len(self.__manager_content_dataset)
+        reflashcall.grid(row=rowIndex,column=0,ipadx=int((stringHeightPx-stringLengthPx)/2))
+        
+        
+        
+        #self.__manager_content_dataset.append
         pass
     # 跳出屏幕信息显示视窗
     def __LoggingWindow(self, text: str, level: str) -> None:
@@ -410,6 +427,8 @@ class QuickToolBar:
         # 设置窗口大小
         stringLengthPx = tk_font.nametofont(showText.cget("font")).measure(text) + 10
         stringHeightPx = tk_font.nametofont(showText.cget("font")).metrics("linespace")
+
+        showText.pack(side="left", expand=False)
         # 获取鼠标位置，并生成在鼠标位置
         mouseX, mouseY = self.root.winfo_pointerxy()
         window.geometry(
@@ -496,7 +515,7 @@ class QuickToolBar:
         window.geometry(f"+{int((window.winfo_screenwidth() - window.winfo_width()) / 2)}"
                         f"+{int((window.winfo_screenheight() - window.winfo_height()) / 2)}")
         return
-
+    
     # Copy image to Clipboard method from https://stackoverflow.com/questions/34322132/copy-image-to-clipboard
     @staticmethod
     def __send_to_clipboard(image):
