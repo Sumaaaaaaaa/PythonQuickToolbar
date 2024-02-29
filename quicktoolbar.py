@@ -464,7 +464,17 @@ class QuickToolBar:
     def creat_instant(self,name:str,command,returnType = None,icon=None):
         self.__create_instant_checkError(name, command, returnType, icon)
         self.__create_dataset_space(name)
-        self.__create_button(name,icon)
+        button = self.__create_button(name,icon)
+        
+        self.__assign_buttonEvent(name, button, command, returnType)
+        
+        if returnType is None:
+            pass
+        elif returnType is ReturnType.String:
+            pass
+        elif returnType is ReturnType.Image:
+            pass
+        
 
     # 创建按钮 - 快速单次执行 (错误检查)
     def __create_instant_checkError(self,name:str,command,returnType = None,icon=None):
@@ -485,7 +495,7 @@ class QuickToolBar:
             raise TypeError("The passed data to command is not a callable data")
             
         # returnType
-        if not ((returnType is None) or (isinstance(returnType,ReturnType))):
+        if not ((returnType is None) or (isinstance(returnType,ReturnType))): #TODO:确认这个哦按段方式能够正常运行
             raise TypeError(f"You are using {returnType} as an argument for returnType, which is not supported. "
                             "Only `ReturnType` enum values can be passed as arguments for returnType.")
             
@@ -524,6 +534,7 @@ class QuickToolBar:
             self.__window_length += width
             self.root.geometry(f"{self.__window_length}x{self.__window_height}")
             button.pack(side="left")
+            return button
         
         # 无icon传入的情况
         else:
@@ -542,8 +553,27 @@ class QuickToolBar:
             self.__window_length += self.__window_height
             self.root.geometry(f"{self.__window_length}x{self.__window_height}")
             button.pack()
-            
-            
+    
+    # 通用？ - 创建按钮事件 #TODO:这真的可以通用吗？如果是多线程的情况下还能正常运行吗？
+    def __assign_buttonEvent(self,name , button, command, returnType):
+        def ButtonFunction():
+            try:
+                returnData = command()
+            except:
+                self.__LoggingWindow(f"{name}..............An error occurred while executing. "
+                        f"See the console for detailed information.", "error")
+                logging.error(f"An error occurred while executing {name}:")
+                raise
+            else: 
+                matchingDic = {ReturnType.String:str,ReturnType.Image} #TODO:[最后编写位置]
+                # 对比返回数据的类型
+                if type(returnData) is returnType
+                
+                # 输出正常运行日志
+                self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
+                logging.debug(f"{name}..............has been executed successfully.")
+        button.config(command = ButtonFunction)
+        
     # 标准窗口创建：命名，将其设置为最上层，禁止改变窗口大小，移除标题栏，移动和关闭，置于屏幕中央位置 {将会返回basicTools_frame用于添加部件}
     def __DefaultWindowSetting(self, window):
         """
