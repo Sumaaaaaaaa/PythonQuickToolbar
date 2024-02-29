@@ -169,7 +169,7 @@ class QuickToolBar:
         self.__root_content_dataset[name] = dict()
         # region 创建按钮
         # 创建按钮
-        if icon is not None:
+        if icon is not None: # 有icon传入
             button = tk.Button()
             # 设置基本特征
             button.config(bg=self.__colors['bg'], borderwidth=0, highlightthickness=0,
@@ -189,7 +189,7 @@ class QuickToolBar:
             self.__window_length += width
             self.root.geometry(f"{self.__window_length}x{self.__window_height}")
             button.pack(side="left")
-        else:
+        else: # 无icon传入
             frame = tk.Frame(self.root, height=self.__window_height, width=self.__window_height)
             frame.pack_propagate(False)
             frame.pack(side="left")
@@ -459,7 +459,91 @@ class QuickToolBar:
                 label.after(int(0.1 * 2000 / len(text)), reveal_text, label, text, idx + 1)
 
         reveal_text(showText, text)
+    
+    # 创建按钮 - 快速单次执行
+    def creat_instant(self,name:str,command,returnType = None,icon=None):
+        self.__create_instant_checkError(name, command, returnType, icon)
+        self.__create_dataset_space(name)
+        self.__create_button(name,icon)
 
+    # 创建按钮 - 快速单次执行 (错误检查)
+    def __create_instant_checkError(self,name:str,command,returnType = None,icon=None):
+        # name
+        if type(name) is not str:  
+            logging.warning(
+                f"When importing the button named \"{name}\", you attempted to import data of type \'{type(name)}\' "
+                f"for name. The name will be automatically converted to the string \"{str(name)}\""
+                f", but it is not recommended to use non-string objects for the name parameter.")
+            name = str(name)
+        if name in self.__root_content_dataset:
+            raise QuickToolBar.__DuplicateButtonName(name)
+            
+        # command
+        if command is None:  # 检查command是否为空或非方法对象
+            raise ValueError("command cannot be None")
+        elif not callable(command):
+            raise TypeError("The passed data to command is not a callable data")
+            
+        # returnType
+        if not ((returnType is None) or (isinstance(returnType,ReturnType))):
+            raise TypeError(f"You are using {returnType} as an argument for returnType, which is not supported. "
+                            "Only `ReturnType` enum values can be passed as arguments for returnType.")
+            
+        # icon
+        if not ((icon is None) or (type(icon) is str)):
+            raise TypeError("Please use None to indicate the absence of an Icon, "
+                            "or use a string to specify the file path for the Icon image.")
+    
+    
+    # 通用 - 创建内容存储
+    def __create_dataset_space(self, name:str):
+        self.__root_content_dataset[name] = dict()
+
+    # 通用 - 创建按钮
+    def __create_button(self,name,icon:str):
+        # 有icon传入的情况
+        if icon is not None: 
+            button = tk.Button()
+            button.config(bg=self.__colors['bg'], borderwidth=0, highlightthickness=0,
+                            activebackground=self.__colors['bg'],
+                            activeforeground=self.__colors['fg'])
+            
+            # 处理Icon，使其符合主窗口的大小
+            icon = Image.open(icon)
+            width, height = icon.size
+            width, height = math.floor(width / height * self.__window_height), self.__window_height
+            icon = icon.resize((int(width * 4 / 5), int(height * 4 / 5)), Image.Resampling.NEAREST)
+            icon_tk = ImageTk.PhotoImage(icon)
+            
+            # 在数据集中，创建icon数据
+            self.__root_content_dataset[name]["icon"] = icon_tk
+            
+            # 将按钮的图片设置为输入的icon，并增加主窗口的大小
+            button.config(image=self.__root_content_dataset[name]["icon"], width=width,
+                          height=self.__window_height)
+            self.__window_length += width
+            self.root.geometry(f"{self.__window_length}x{self.__window_height}")
+            button.pack(side="left")
+        
+        # 无icon传入的情况
+        else:
+            frame = tk.Frame(self.root, height=self.__window_height, width=self.__window_height)
+            frame.pack_propagate(False)
+            frame.pack(side="left")
+            button = tk.Button(frame)
+            # 设置基本特征
+            button.config(bg=self.__colors['bg'], borderwidth=0, highlightthickness=0,
+                          activebackground=self.__colors['bg'],
+                          activeforeground=self.__colors['bg'])
+            # 在没有设置按钮图像的情况下，将添加一个正方形的按钮并将第一个字母作为标识，并调整其大小为按钮大小
+            button.config(text=name[0], height=self.__window_height, width=self.__window_height,
+                          font=("Arial", int(self.__window_height * 0.5)))
+            # 增加主窗口的大小
+            self.__window_length += self.__window_height
+            self.root.geometry(f"{self.__window_length}x{self.__window_height}")
+            button.pack()
+            
+            
     # 标准窗口创建：命名，将其设置为最上层，禁止改变窗口大小，移除标题栏，移动和关闭，置于屏幕中央位置 {将会返回basicTools_frame用于添加部件}
     def __DefaultWindowSetting(self, window):
         """
