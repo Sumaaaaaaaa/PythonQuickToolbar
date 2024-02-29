@@ -1,6 +1,6 @@
 """
 TODO BUG
-# 在不同的屏幕刷新率下，Logging窗口的跳出时间是不同的，60FPS下会很慢
+# ReturnType.Image 下的图片无法正常复制
 TODO
 *. 预设功能：时钟
 *. 预设功能：记事本
@@ -37,6 +37,13 @@ class Mode(Enum):
 class ReturnType(Enum):
     String = auto()
     Image = auto()
+    
+    @property
+    def instance(self):
+        if self == ReturnType.String:
+            return str
+        elif self == ReturnType.Image:
+            return Image.Image
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -107,264 +114,10 @@ class QuickToolBar:
         self.root.mainloop()
         logging.info("The basic window has been created successfully.")
 
-    # *创建按钮*
-    def createButton(self, name: str, command, mode: Mode, returnType=None, icon=None, group=None, delay=None,loopDelay=None) -> None:
-        # region 检查错误
-        # 挨个检查输入参数的类型
-        if type(name) is not str:  # 检查name
-            logging.warning(
-                f"When importing the button named \"{name}\", you attempted to import data of type \'{type(name)}\' "
-                f"for name. The name will be automatically converted to the string \"{str(name)}\""
-                f", but it is not recommended to use non-string objects for the name parameter.")
-            name = str(name)
-        # command
-        if command is None:  # 检查command是否为空或非方法对象
-            raise ValueError("command cannot be None")
-        elif not callable(command):
-            raise TypeError("The passed data to command is not a callable data")
-        # mode
-        if type(mode) is not Mode:  # 检查mode
-            raise TypeError(
-                "mode is not an instance of \'Mode\', Please define using the \'Mode\' enum type.")
-        # returnType
-        if not ((returnType is None) or (returnType in [ReturnType.String, ReturnType.Image])):
-            raise TypeError(f"You are attempting to use {returnType} as the return format, which is currently "
-                            f"not supported. Only \'ReturnType.String\' or \'ReturnType.Image\' "
-                            f"are accepted as return types.")
-        # icon
-        if not ((icon is None) or (type(icon) is str)):
-            raise TypeError("Please use None to indicate the absence of an Icon, "
-                            "or use a string to specify the file path for the Icon image.")
-        # group
-        if group is not None:
-            raise TypeError("Group functionality is currently not supported, please wait for an update.")
-        # delay
-        if mode is Mode.Api_Repeat:
-            if delay is None:
-                raise TypeError("When using the Api_Repeat mode, you must specify the \'delay\' parameter. Set the delay parameter to an {int} object with units in milliseconds.")
-            elif type(delay) is not int:
-                raise TypeError(f"When using the Api_Repeat mode, you must specify the \'delay\' parameter as an {int} object with units in milliseconds instead {type(delay)}.")
-            elif delay <= 0:
-                raise ValueError(f"When using the Api_Repeat mode, the \'delay\' parameter must be greater than 0, but you specified {delay}.")
-        else:
-            if delay is not None:
-                raise TypeError("The \'delay\' parameter is only valid when using the Api_Repeat mode. Set it to \'None\' or leave it unset.")
-        # loopDelay
-        if mode is Mode.Api_Repeat:
-            if loopDelay is None:
-                raise TypeError("When using the Api_Repeat mode, you must specify the \'loopDelay\' parameter. Set the loopDelay parameter to an {int} object with units in milliseconds.")
-            elif type(loopDelay) is not int:
-                raise TypeError(f"When using the Api_Repeat mode, you must specify the \'loopDelay\' parameter as an {int} object with units in milliseconds instead {type(loopDelay)}.")
-            elif loopDelay <= 0:
-                raise ValueError(f"When using the Api_Repeat mode, the \'loopDelay\' parameter must be greater than 0, but you specified {loopDelay}.")
-        else:
-            if loopDelay is not None:
-                raise TypeError("The \'loopDelay\' parameter is only valid when using the Api_Repeat mode. Set it to \'None\' or leave it unset.")
-        # 检查是否方法重名
-        if name in self.__root_content_dataset:
-            raise QuickToolBar.__DuplicateButtonName(name)
-
-        # endregion
-        # 在数据集中创建署名字典
-        self.__root_content_dataset[name] = dict()
-        # region 创建按钮
-        # 创建按钮
-        if icon is not None:
-            button = tk.Button()
-            # 设置基本特征
-            button.config(bg=self.__colors['bg'], borderwidth=0, highlightthickness=0,
-                          activebackground=self.__colors['bg'],
-                          activeforeground=self.__colors['fg'])
-            # 处理Icon，使其符合主窗口的大小
-            icon = Image.open(icon)
-            width, height = icon.size
-            width, height = math.floor(width / height * self.__window_height), self.__window_height
-            icon = icon.resize((int(width * 4 / 5), int(height * 4 / 5)), Image.Resampling.NEAREST)
-            icon_tk = ImageTk.PhotoImage(icon)
-            # 在数据集中，创建icon数据
-            self.__root_content_dataset[name]["icon"] = icon_tk
-            # 将按钮的图片设置为输入的icon，并增加主窗口的大小
-            button.config(image=self.__root_content_dataset[name]["icon"], width=width,
-                          height=self.__window_height)
-            self.__window_length += width
-            self.root.geometry(f"{self.__window_length}x{self.__window_height}")
-            button.pack(side="left")
-        else:
-            frame = tk.Frame(self.root, height=self.__window_height, width=self.__window_height)
-            frame.pack_propagate(False)
-            frame.pack(side="left")
-            button = tk.Button(frame)
-            # 设置基本特征
-            button.config(bg=self.__colors['bg'], borderwidth=0, highlightthickness=0,
-                          activebackground=self.__colors['bg'],
-                          activeforeground=self.__colors['bg'])
-            # 在没有设置按钮图像的情况下，将添加一个正方形的按钮并将第一个字母作为标识，并调整其大小为按钮大小
-            button.config(text=name[0], height=self.__window_height, width=self.__window_height,
-                          font=("Arial", int(self.__window_height * 0.5)))
-            # 增加主窗口的大小
-            self.__window_length += self.__window_height
-            self.root.geometry(f"{self.__window_length}x{self.__window_height}")
-            button.pack()
-        # 放置按钮
-
-        # endregion
-
-        # region 根据模式分开处理
-        if mode is Mode.Api:
-            # Mode.Api - None
-            if returnType is None:
-                def ButtonFunction():
-                    # 执行方法
-                    try:
-                        command()
-                    except:
-                        self.__LoggingWindow(f"{name}..............An error occurred while executing. "
-                                             f"See the console for detailed information.", "error")
-                        logging.error(f"An error occurred while executing {name}.")
-                        raise
-                    else:
-                        # 输出正常运行日志
-                        self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
-                        logging.debug(f"{name}..............has been executed successfully.")
-                button.config(command=ButtonFunction)
-            # Mode.Api - str
-            elif returnType is ReturnType.String:
-                def ButtonFunction():
-                    try:
-                        # 执行对象获取返回文字
-                        returnData = command()
-                        # 若没有获得返回
-                        if returnData is None:
-                            # 调出错误提示，窗口提示
-                            self.__LoggingWindow(f"{name}..............Failed to obtain the return data from "
-                                                 f"the method. See the console for detailed information. ", "error")
-                            logging.error(f"While executing the method named \"{name}\", failed to retrieve the "
-                                          f"method's return data. Please ensure the method has a defined "
-                                          f"return statement.")
-                            return
-                        # 确认返回数据类型正确
-                        if type(returnData) is not str:
-                            # 调出错误提示，窗口提示
-                            self.__LoggingWindow(f"{name}..............The returned data type is incorrect. "
-                                                 f"See the console for detailed information. ", "error")
-                            logging.error(f"While invoking the method named \'{name}\', "
-                                          f"the returned data type is {type(returnData)} instead "
-                                          f"of str. Please confirm whether the method is returning data "
-                                          f"of the str type.")
-                            return
-                        # 确认返回数据正确后，执行跳出窗口
-                        window = tk.Toplevel(self.root)
-                        basicTools_frame = self.__DefaultWindowSetting(window)
-
-                        # 创建复制按钮
-                        def copyCommand():
-                            copy(returnData)
-                            self.__LoggingWindow("The content has been copied to the clipboard.", "succeed")
-
-                        copyButton = tk.Button(basicTools_frame, image=self.__copyIcon, command=copyCommand,
-                                               bg=self.__colors['bg2'], borderwidth=0, highlightthickness=0,
-                                               activebackground=self.__colors['bg2'])
-                        copyButton.pack(side="bottom", expand=False)
-
-                        # 创建窗口
-                        textLabel = tk.Label(window, text=returnData, bg=self.__colors['bg'], fg=self.__colors['fg'], justify="left")
-                        textLabel.pack(side="left", expand=False)
-                        self.__CenterWindow(window)
-                    except:
-                        self.__LoggingWindow(f"{name}..............An error occurred while executing. "
-                                             f"See the console for detailed information.", "error")
-                        logging.error(f"An error occurred while executing {name}.")
-                        raise
-                    else:
-                        # 输出正常运行日志
-                        self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
-                        logging.debug(f"{name}..............has been executed successfully.")
-                button.config(command=ButtonFunction)
-
-            elif returnType is ReturnType.Image:
-                def ButtonFunction():
-                    try:
-                        returnData = command()
-                        # 若没有获得返回
-                        if returnData is None:
-                            # 调出错误提示，窗口提示
-                            self.__LoggingWindow(f"{name}..............Failed to obtain the return data from "
-                                                 f"the method. See the console for detailed information. ", "error")
-                            logging.error(f"While executing the method named \"{name}\", failed to retrieve the "
-                                          f"method's return data. Please ensure the method has a defined "
-                                          f"return statement.")
-                            return
-                        # 确认返回数据类型正确
-                        if not isinstance(returnData, Image.Image):
-                            # 调出错误提示，窗口提示
-                            self.__LoggingWindow(f"{name}..............The returned data type is incorrect. "
-                                                 f"See the console for detailed information. ", "error")
-                            logging.error(f"While invoking the method named \'{name}\', "
-                                          f"the returned data type is {type(returnData)} instead "
-                                          f"of Image. Please confirm whether the method is returning data "
-                                          f"of the str Image.")
-                            return
-                        # 确认返回数据正确后，执行跳出窗口
-                        window = tk.Toplevel(self.root)
-                        basicTools_frame = self.__DefaultWindowSetting(window)
-
-                        # 创建复制按钮命令
-                        window.returnData = returnData
-
-                        def copyCommand():
-                            self.__send_to_clipboard(window.returnData)
-                            self.__LoggingWindow("The content has been copied to the clipboard.", "succeed")
-
-                        # 创建复制按钮
-                        copyButton = tk.Button(basicTools_frame, image=self.__copyIcon, command=copyCommand,
-                                               bg=self.__colors['bg2'], borderwidth=0, highlightthickness=0,
-                                               activebackground=self.__colors['bg2'])
-                        copyButton.pack(side="bottom", expand=False)
-
-                        # 若图片大小大于屏幕的1/3，则将其缩小为窗口的1/3之内
-                        if returnData.size[0]>self.root.winfo_screenwidth()/3:
-                            wx = self.root.winfo_screenwidth()/3
-                            wy = wx*returnData.size[1]/returnData.size[0]
-                            wx, wy = int(wx), int(wy)
-                            returnData = returnData.resize((wx, wy), Image.Resampling.BILINEAR)
-                            logging.info(
-                                "The image has been scaled down to within one-third of the screen for better display.")
-                        if returnData.size[1]>self.root.winfo_screenheight()/3:
-                            wy = self.root.winfo_screenheight()/3
-                            wx = wy*returnData.size[0]/returnData.size[1]
-                            wx, wy = int(wx), int(wy)
-                            returnData = returnData.resize((wx, wy), Image.Resampling.BILINEAR)
-                            logging.info(
-                                "The image has been scaled down to within one-third of the screen for better display.")
-
-                        # 创建窗口
-                        window.tkImage = ImageTk.PhotoImage(returnData)
-                        imageLabel = tk.Label(window, image=window.tkImage, bg=self.__colors['bg'], fg=self.__colors['fg'])
-                        imageLabel.pack(side="left", expand=False)
-                        self.__CenterWindow(window)
-
-                    except:
-                        self.__LoggingWindow(f"{name}..............An error occurred while executing. "
-                                             f"See the console for detailed information.", "error")
-                        logging.error(f"An error occurred while executing {name}.")
-                        raise
-                    else:
-                        # 输出正常运行日志
-                        self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
-                        logging.debug(f"{name}..............has been executed successfully.")
-                button.config(command=ButtonFunction)
-        # TODO
-        """
-        if mode is Mode.Api_Repeat:
-            # Mode.Api_Repeat - str
-            if returnType is None:
-                pass
-        """
-        # endregion
     # 管理窗口
     def ManageWindow_test(self):
         self.__ManageWindow("add")
-    # TODO
+    # TODO:
     def __ManageWindow(self, action:str) -> None:
         if not (action in ["add"]):
             raise ValueError("内部错误：在调用__ManageWindow方法时，使用了错误的action字符串。")
@@ -459,8 +212,186 @@ class QuickToolBar:
                 label.after(int(0.1 * 2000 / len(text)), reveal_text, label, text, idx + 1)
 
         reveal_text(showText, text)
+    
+    # 创建按钮 - 快速单次执行
+    def createButtonVersionB(self, name:str,command ,mode:Mode,returnType:ReturnType = None,icon:str=None):
+        self.__create_instant_checkError(name, command, mode, returnType, icon)
+        self.__create_dataset_space(name)
+        button = self.__create_button(name,icon)
+        print(button)
+        self.__assign_buttonEvent(name, button, command, returnType)
+        
 
-    # 标准窗口创建：命名，将其设置为最上层，禁止改变窗口大小，移除标题栏，移动和关闭，置于屏幕中央位置 {将会返回basicTools_frame用于添加部件}
+    # 创建按钮 - 快速单次执行 (错误检查)
+    def __create_instant_checkError(self,name:str,command,mode,returnType = None,icon=None):
+        # name
+        if type(name) is not str:  
+            logging.warning(
+                f"When importing the button named \"{name}\", you attempted to import data of type \'{type(name)}\' "
+                f"for name. The name will be automatically converted to the string \"{str(name)}\""
+                f", but it is not recommended to use non-string objects for the name parameter.")
+            name = str(name)
+        if name in self.__root_content_dataset:
+            raise QuickToolBar.__DuplicateButtonName(name)
+        
+        # mode
+        if type(mode) is not Mode: 
+            raise TypeError(
+                "mode is not an instance of \'Mode\', Please define using the \'Mode\' enum type.")
+        
+        # command
+        if command is None:  # 检查command是否为空或非方法对象
+            raise ValueError("command cannot be None")
+        elif not callable(command):
+            raise TypeError("The passed data to command is not a callable data")
+            
+        # returnType
+        if not ((returnType is None) or (isinstance(returnType,ReturnType))): #TODO:确认这个哦按段方式能够正常运行
+            raise TypeError(f"You are using {returnType} as an argument for returnType, which is not supported. "
+                            "Only `ReturnType` enum values can be passed as arguments for returnType.")
+            
+        # icon
+        if not ((icon is None) or (type(icon) is str)):
+            raise TypeError("Please use None to indicate the absence of an Icon, "
+                            "or use a string to specify the file path for the Icon image.")
+    
+    # 通用 - 创建内容存储
+    def __create_dataset_space(self, name:str):
+        self.__root_content_dataset[name] = dict()
+
+    # 通用 - 创建按钮
+    def __create_button(self,name,icon:str):
+        # 有icon传入的情况
+        if icon is not None: 
+            button = tk.Button()
+            button.config(bg=self.__colors['bg'], borderwidth=0, highlightthickness=0,
+                            activebackground=self.__colors['bg'],
+                            activeforeground=self.__colors['fg'])
+            
+            # 处理Icon，使其符合主窗口的大小
+            icon = Image.open(icon)
+            width, height = icon.size
+            width, height = math.floor(width / height * self.__window_height), self.__window_height
+            icon = icon.resize((int(width * 4 / 5), int(height * 4 / 5)), Image.Resampling.NEAREST)
+            icon_tk = ImageTk.PhotoImage(icon)
+            
+            # 在数据集中，创建icon数据
+            self.__root_content_dataset[name]["icon"] = icon_tk
+            
+            # 将按钮的图片设置为输入的icon，并增加主窗口的大小
+            button.config(image=self.__root_content_dataset[name]["icon"], width=width,
+                          height=self.__window_height)
+            self.__window_length += width
+            self.root.geometry(f"{self.__window_length}x{self.__window_height}")
+            button.pack(side="left")
+            return button
+        
+        # 无icon传入的情况
+        else:
+            frame = tk.Frame(self.root, height=self.__window_height, width=self.__window_height)
+            frame.pack_propagate(False)
+            frame.pack(side="left")
+            button = tk.Button(frame)
+            # 设置基本特征
+            button.config(bg=self.__colors['bg'], borderwidth=0, highlightthickness=0,
+                          activebackground=self.__colors['bg'],
+                          activeforeground=self.__colors['bg'])
+            # 在没有设置按钮图像的情况下，将添加一个正方形的按钮并将第一个字母作为标识，并调整其大小为按钮大小
+            button.config(text=name[0], height=self.__window_height, width=self.__window_height,
+                          font=("Arial", int(self.__window_height * 0.5)))
+            # 增加主窗口的大小
+            self.__window_length += self.__window_height
+            self.root.geometry(f"{self.__window_length}x{self.__window_height}")
+            button.pack()
+            return button
+    
+    # 通用？ - 创建按钮事件 #TODO:这真的可以通用吗？如果是多线程的情况下还能正常运行吗？
+    def __assign_buttonEvent(self,name , button, command, returnType:ReturnType):
+        def ButtonFunction():
+            # 错误捕获
+            try:
+                returnData = command()
+            except:
+                self.__LoggingWindow(f"{name}..............An error occurred while executing. "
+                        f"See the console for detailed information.", "error")
+                logging.error(f"An error occurred while executing {name}:")
+                raise
+            else: 
+                # 没有出现错误：
+                # 若返回类型不符合需求:
+                if not ((returnType is None) and (returnData is None)):
+                    if not isinstance(returnData,returnType.instance): #TODO:是否可以正常判断
+                        self.__LoggingWindow(f"{name}..............The returned data type is incorrect. "
+                                                    f"See the console for detailed information. ", "error")
+                        logging.error(f"While invoking the method named \'{name}\', "
+                                        f"the returned data type is {type(returnData)} instead "
+                                        f"of {returnType.instance}. Please confirm whether the method is returning data "
+                                        f"of the str Image.")
+                        return
+                if returnType is ReturnType.String:
+                    self.__createWindow_String(returnData)
+                elif returnType is ReturnType.Image:
+                    self.__createWindow_Image(returnData)
+                # 输出正常运行日志
+                self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
+                logging.debug(f"{name}..............has been executed successfully.")
+        button.config(command = ButtonFunction)
+    
+    # 返回窗口创建：字符串 ReturnType.String
+    def __createWindow_String(self, returnData):
+        window = tk.Toplevel(self.root)
+        basicTools_frame = self.__DefaultWindowSetting(window)
+        # 创建复制按钮
+        def copyCommand():
+            copy(returnData)
+            self.__LoggingWindow("The content has been copied to the clipboard.", "succeed")
+
+        copyButton = tk.Button(basicTools_frame, image=self.__copyIcon, command=copyCommand,
+                                bg=self.__colors['bg2'], borderwidth=0, highlightthickness=0,
+                                activebackground=self.__colors['bg2'])
+        copyButton.pack(side="bottom", expand=False)
+        # 创建窗口
+        textLabel = tk.Label(window, text=returnData, bg=self.__colors['bg'], fg=self.__colors['fg'], justify="left")
+        textLabel.pack(side="left", expand=False)
+        self.__CenterWindow(window)
+        
+    # 返回窗口创建：字符串 ReturnType.Image
+    def __createWindow_Image(self,returnData):
+        window = tk.Toplevel(self.root)
+        basicTools_frame = self.__DefaultWindowSetting(window)
+        # 创建复制按钮命令
+        window.returnData = returnData
+        def copyCommand():
+            self.__send_to_clipboard(window.returnData)
+            self.__LoggingWindow("The content has been copied to the clipboard.", "succeed")
+        
+        # 创建复制按钮
+        copyButton = tk.Button(basicTools_frame, image=self.__copyIcon, command=copyCommand,
+                                bg=self.__colors['bg2'], borderwidth=0, highlightthickness=0,
+                                activebackground=self.__colors['bg2'])
+        copyButton.pack(side="bottom", expand=False)
+        if returnData.size[0]>self.root.winfo_screenwidth()/3:
+            wx = self.root.winfo_screenwidth()/3
+            wy = wx*returnData.size[1]/returnData.size[0]
+            wx, wy = int(wx), int(wy)
+            returnData = returnData.resize((wx, wy), Image.Resampling.BILINEAR)
+            logging.info(
+                "The image has been scaled down to within one-third of the screen for better display.")
+        if returnData.size[1]>self.root.winfo_screenheight()/3:
+            wy = self.root.winfo_screenheight()/3
+            wx = wy*returnData.size[0]/returnData.size[1]
+            wx, wy = int(wx), int(wy)
+            returnData = returnData.resize((wx, wy), Image.Resampling.BILINEAR)
+            logging.info(
+                "The image has been scaled down to within one-third of the screen for better display.")
+        
+        # 创建窗口
+        window.tkImage = ImageTk.PhotoImage(returnData)
+        imageLabel = tk.Label(window, image=window.tkImage, bg=self.__colors['bg'], fg=self.__colors['fg'])
+        imageLabel.pack(side="left", expand=False)
+        self.__CenterWindow(window)
+        
+    # 标准窗口设置：命名，将其设置为最上层，禁止改变窗口大小，移除标题栏，移动和关闭，置于屏幕中央位置 {将会返回basicTools_frame用于添加部件}
     def __DefaultWindowSetting(self, window):
         """
         # 设置窗口的透明度为50%
@@ -541,8 +472,7 @@ def run():
 
 
 # 添加按钮方法
-def createButton(name: str, command, mode: Mode, returnType=None, icon=None, group=None,delay=None,loopDelay=None) -> None:
-    root.createButton(name, command, mode, returnType, icon, group, delay, loopDelay)
+def createButton(name:str,command,mode, returnType = None,icon=None):
+    root.createButtonVersionB(name, command, mode,returnType, icon)
     return
-
 # endregion
