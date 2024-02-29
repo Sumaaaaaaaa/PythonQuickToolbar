@@ -2,14 +2,15 @@ import quicktoolbar
 from PIL import Image
 
 #quicktoolbar.root.ManageWindow_test()
+
 def test():
-    a = Image.open("Icons\\close.png")
-    return a 
+    b = Image.open("Icons\\close.png")
+    return b
 
 quicktoolbar.createButton(
     name = "1",
     command=test,
-    returnType=quicktoolbar.ReturnType.Image,
+    returnType=quicktoolbar.ReturnType.Auto,
     mode = quicktoolbar.Mode.Api
     )
 quicktoolbar

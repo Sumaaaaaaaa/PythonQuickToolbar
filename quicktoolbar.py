@@ -1,14 +1,6 @@
 """
 TODO BUG
 # ReturnType.Image 下的图片无法正常复制
-TODO
-*. 预设功能：时钟
-*. 预设功能：记事本
-*. 高级接口
-*. 主题（夜/日）系统
-A. 组系统
-B. 更多模式的支持
-C. 主题（夜/日）系统
 """
 
 from enum import Enum, auto
@@ -32,11 +24,11 @@ class Mode(Enum):
     Concurrent_Thread_Endless = auto()
     Concurrent_Process_Endless = auto()
     Async_Endless = auto()
-
-
+    
 class ReturnType(Enum):
     String = auto()
     Image = auto()
+    Auto = auto()
     
     @property
     def instance(self):
@@ -44,8 +36,8 @@ class ReturnType(Enum):
             return str
         elif self == ReturnType.Image:
             return Image.Image
-
-
+        elif self == ReturnType.Auto:
+            return type(None)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
@@ -246,7 +238,7 @@ class QuickToolBar:
             raise TypeError("The passed data to command is not a callable data")
             
         # returnType
-        if not ((returnType is None) or (isinstance(returnType,ReturnType))): #TODO:确认这个哦按段方式能够正常运行
+        if not ((returnType is None) or (isinstance(returnType,ReturnType))): 
             raise TypeError(f"You are using {returnType} as an argument for returnType, which is not supported. "
                             "Only `ReturnType` enum values can be passed as arguments for returnType.")
             
@@ -319,18 +311,29 @@ class QuickToolBar:
             else: 
                 # 没有出现错误：
                 # 若返回类型不符合需求:
-                if not ((returnType is None) and (returnData is None)):
-                    if not isinstance(returnData,returnType.instance): #TODO:是否可以正常判断
-                        self.__LoggingWindow(f"{name}..............The returned data type is incorrect. "
-                                                    f"See the console for detailed information. ", "error")
-                        logging.error(f"While invoking the method named \'{name}\', "
-                                        f"the returned data type is {type(returnData)} instead "
-                                        f"of {returnType.instance}. Please confirm whether the method is returning data "
-                                        f"of the str Image.")
+                
+                isReturnCorrect, theType = QuickToolBar.__isReturnCorrect(returnData,returnType)
+                if not isReturnCorrect:
+                    self.__LoggingWindow(f"{name}..............The returned data type is incorrect. "
+                                                f"See the console for detailed information. ", "error")
+                    if returnType is ReturnType.Auto:
+                        typeslist = []
+                        for types in ReturnType:
+                            typeslist.append(types.instance)
+                        print(f"While invoking the method named \'{name}\', "
+                              f"the returned data type is {type(returnData)}. "
+                              f"However, the return type is not supported. "
+                              f"The return types supported in Auto mode include {typeslist}"
+                              )
                         return
-                if returnType is ReturnType.String:
+                    logging.error(f"While invoking the method named \'{name}\', "
+                                    f"the returned data type is {type(returnData)} instead "
+                                    f"of {returnType.instance}. Please confirm whether the method is returning data "
+                                    f"of the str Image.")
+                    return
+                if theType is ReturnType.String:
                     self.__createWindow_String(returnData)
-                elif returnType is ReturnType.Image:
+                elif theType is ReturnType.Image:
                     self.__createWindow_Image(returnData)
                 # 输出正常运行日志
                 self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
@@ -390,7 +393,20 @@ class QuickToolBar:
         imageLabel = tk.Label(window, image=window.tkImage, bg=self.__colors['bg'], fg=self.__colors['fg'])
         imageLabel.pack(side="left", expand=False)
         self.__CenterWindow(window)
-        
+    
+    # 返回值判断
+    @staticmethod
+    def __isReturnCorrect(returnData, returnType) -> bool:
+        if returnType is ReturnType.Auto:
+            for theType in ReturnType:
+                if isinstance(returnData,theType.instance):
+                    return True, theType
+            return False, returnType
+        if returnType is None:
+            return (returnData is None), None
+        return isinstance(returnData,returnType.instance), returnType
+            
+    
     # 标准窗口设置：命名，将其设置为最上层，禁止改变窗口大小，移除标题栏，移动和关闭，置于屏幕中央位置 {将会返回basicTools_frame用于添加部件}
     def __DefaultWindowSetting(self, window):
         """

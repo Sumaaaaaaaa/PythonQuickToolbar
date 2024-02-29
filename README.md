@@ -92,14 +92,14 @@ def createButton(name: str, command, mode: Mode, returnType=None, icon=None, gro
 |----------------------|-----------------------------------------------------|
 | `ReturnType.String`     | String object                                               |
 | `ReturnType.Image`   | PIL Image object                                            |
-| `ReturnType.Unknown` | When you don't know what type of data will be returned, use it, <br/>quickToolbar will automatically create a window based on the returned data type. |
+| `ReturnType.Auto` | When you don't know what type of data will be returned, use it, <br/>quickToolbar will automatically create a window based on the returned data type. |
 
 ### Mode : returnType
 Regarding the current state of development, the support for the `returnType` corresponding to `Mode` is as follows.
 
-|                                            | `None` | `ReturnType.String` | `ReturnType.Image` | `ReturnType.Unknown` | 🚧 |
+|                                            | `None` | `ReturnType.String` | `ReturnType.Image` | `ReturnType.Auto` | 🚧 |
 |:-------------------------------------------|--------|------------------|--------------------|----------------------|----|
-| `Mode.Api`                        | ✔      | ✔                | ✔ _**New**_        | 🚧                   | 🚧 |
+| `Mode.Api`                        | ✔      | ✔                | ✔         | ✔ _**New**_                   | 🚧 |
 | `Mode.Api_Repeat`                 | ⏳      | ⏳                | ⏳                  | 🚧                   | 🚧 |
 | `Mode.Concurrent_Thread`          | 🚧     | 🚧               | 🚧                 | 🚧                   | 🚧 |
 | `Mode.Concurrent_Thread_Endless`  | 🚧     | 🚧               | 🚧                 | 🚧                   | 🚧 |
