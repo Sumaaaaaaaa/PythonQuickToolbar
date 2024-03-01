@@ -1,6 +1,9 @@
 """
-TODO BUG
-# ReturnType.Image 下的图片无法正常复制
+FIXME:
+-[] 以`Mode.Concurrent_Thread`执行时会跳出一个奇怪的窗口
+TODO:
+-[] ReturnType.Image 下的图片无法正常复制
+-[] `INFO - The basic window has been created successfully.` 会在关闭时显示而非打开时
 """
 
 from enum import Enum, auto
@@ -12,6 +15,7 @@ import math
 from pyperclip import copy
 from io import BytesIO
 import win32clipboard
+from concurrent.futures import ThreadPoolExecutor
 
 
 class Mode(Enum):
@@ -38,7 +42,7 @@ class ReturnType(Enum):
             return Image.Image
         elif self == ReturnType.Auto:
             return type(None)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class QuickToolBar:
@@ -58,6 +62,7 @@ class QuickToolBar:
     # 创建内容存储
     __root_content_dataset = dict()  # 创建内容数据集
     __manager_content_dataset = []  # 管理内容数据集
+    executor = None # 线程池
     
     # 颜色设计
     __colors = {'bg': 'white', 'fg': 'black', 'bg2': "gray"}  # 颜色设计
@@ -68,11 +73,16 @@ class QuickToolBar:
 
     # endregion
 
-    # 初始化主窗口
+    # 初始化
     def __init__(self):
         # 创建主屏幕
         self.root = tk.Tk()
-
+        
+        # 开启线程池
+        self.__threading_init()
+        # 把线程池关闭加入到关闭动作中
+        self.root.protocol('WM_DELETE_WINDOW',self.__threading_close)
+        
         # region 基本数据变量设置（如窗口宽度……）
         # 设置窗口的高度为屏幕分辨率较短的那一边的1/20，初始长度与高度相同
         screen_size = min(self.root.winfo_screenwidth(), self.root.winfo_screenheight())
@@ -100,12 +110,25 @@ class QuickToolBar:
         self.__DefaultWindowSetting(self.root)
         # 设置窗口尺寸
         self.root.geometry(str(self.__window_length) + "x" + str(self.__window_height))
-
+    
+    
+    # 多线程_线程池创建
+    def __threading_init(self):
+        logging.debug("Thread pool has been opened.")
+        self.executor = ThreadPoolExecutor(max_workers=None)
+    # 多线程_线程池关闭
+    def __threading_close(self):
+        logging.debug("Thread pool has been closed.")
+        self.executor.shutdown(wait=False)
+    # 多线程_上交一个任务
+    def __threading_submit(self, function):
+        self.executor.submit(function)
+        pass
     # *运行系统*
     def run(self):
         self.root.mainloop()
         logging.info("The basic window has been created successfully.")
-
+        
     # 管理窗口
     def ManageWindow_test(self):
         self.__ManageWindow("add")
@@ -204,15 +227,12 @@ class QuickToolBar:
                 label.after(int(0.1 * 2000 / len(text)), reveal_text, label, text, idx + 1)
 
         reveal_text(showText, text)
-    
     # 创建按钮 - 快速单次执行
     def createButtonVersionB(self, name:str,command ,mode:Mode,returnType:ReturnType = None,icon:str=None):
         self.__create_instant_checkError(name, command, mode, returnType, icon)
         self.__create_dataset_space(name)
         button = self.__create_button(name,icon)
-        print(button)
-        self.__assign_buttonEvent(name, button, command, returnType)
-        
+        self.__assign_buttonEvent(name, button, command, mode, returnType)
 
     # 创建按钮 - 快速单次执行 (错误检查)
     def __create_instant_checkError(self,name:str,command,mode,returnType = None,icon=None):
@@ -298,14 +318,14 @@ class QuickToolBar:
             return button
     
     # 通用？ - 创建按钮事件 #TODO:这真的可以通用吗？如果是多线程的情况下还能正常运行吗？
-    def __assign_buttonEvent(self,name , button, command, returnType:ReturnType):
+    def __assign_buttonEvent(self,name , button, command, mode, returnType:ReturnType):
         def ButtonFunction():
             # 错误捕获
             try:
                 returnData = command()
             except:
                 self.__LoggingWindow(f"{name}..............An error occurred while executing. "
-                        f"See the console for detailed information.", "error")
+                                    f"See the console for detailed information.", "error")
                 logging.error(f"An error occurred while executing {name}:")
                 raise
             else: 
@@ -320,7 +340,7 @@ class QuickToolBar:
                         typeslist = []
                         for types in ReturnType:
                             typeslist.append(types.instance)
-                        print(f"While invoking the method named \'{name}\', "
+                        logging.error(f"While invoking the method named \'{name}\', "
                               f"the returned data type is {type(returnData)}. "
                               f"However, the return type is not supported. "
                               f"The return types supported in Auto mode include {typeslist}"
@@ -332,17 +352,26 @@ class QuickToolBar:
                                     f"of the str Image.")
                     return
                 if theType is ReturnType.String:
+                    pass
                     self.__createWindow_String(returnData)
                 elif theType is ReturnType.Image:
+                    pass
                     self.__createWindow_Image(returnData)
                 # 输出正常运行日志
                 self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
                 logging.debug(f"{name}..............has been executed successfully.")
-        button.config(command = ButtonFunction)
+        def ButtonFunction_submitThreading():
+            self.__threading_submit(ButtonFunction)
+            self.__LoggingWindow(f"{name}..............Success runs in the background.", "succeed")
+        if mode is Mode.Api:
+            button.config(command = ButtonFunction)
+        elif mode is Mode.Concurrent_Process:
+            button.config(command = ButtonFunction_submitThreading)
     
     # 返回窗口创建：字符串 ReturnType.String
     def __createWindow_String(self, returnData):
         window = tk.Toplevel(self.root)
+        window.withdraw()
         basicTools_frame = self.__DefaultWindowSetting(window)
         # 创建复制按钮
         def copyCommand():
@@ -357,10 +386,12 @@ class QuickToolBar:
         textLabel = tk.Label(window, text=returnData, bg=self.__colors['bg'], fg=self.__colors['fg'], justify="left")
         textLabel.pack(side="left", expand=False)
         self.__CenterWindow(window)
+        window.deiconify()
         
     # 返回窗口创建：字符串 ReturnType.Image
     def __createWindow_Image(self,returnData):
         window = tk.Toplevel(self.root)
+        window.withdraw()
         basicTools_frame = self.__DefaultWindowSetting(window)
         # 创建复制按钮命令
         window.returnData = returnData
@@ -387,6 +418,7 @@ class QuickToolBar:
             returnData = returnData.resize((wx, wy), Image.Resampling.BILINEAR)
             logging.info(
                 "The image has been scaled down to within one-third of the screen for better display.")
+        window.deiconify()
         
         # 创建窗口
         window.tkImage = ImageTk.PhotoImage(returnData)
