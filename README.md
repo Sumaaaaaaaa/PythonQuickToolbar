@@ -103,7 +103,7 @@ Regarding the current state of development, the support for the `returnType` cor
 | `Mode.Api_Repeat`                 | ⏳      | ⏳                | ⏳                  | 🚧                   | 🚧 |
 | `Mode.Concurrent_Thread`          | 🚧     | 🚧               | 🚧                 | 🚧                   | 🚧 |
 | `Mode.Concurrent_Thread_Endless`  | 🚧     | 🚧               | 🚧                 | 🚧                   | 🚧 |
-| `Mode.Concurrent_Process`         | 🚧     | 🚧               | 🚧                 | 🚧                   | 🚧 |
+| `Mode.Concurrent_Process`         | ✔ _**New**_     | ✔ _**New**_              | ✔ _**New**_                | ✔ _**New**_                  | 🚧 |
 | `Mode.Concurrent_Process_Endless` | 🚧     | 🚧               | 🚧                 | 🚧                   | 🚧 |
 | `Mode.Async`                      | 🚧     | 🚧               | 🚧                 | 🚧                   | 🚧 |
 | `Mode.Async_Endless`              | 🚧     | 🚧               | 🚧                 | 🚧                   | 🚧 |
