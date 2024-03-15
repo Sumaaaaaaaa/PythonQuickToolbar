@@ -1,9 +1,9 @@
 """
 FIXME:
--[] 以`Mode.Concurrent_Thread`执行时会跳出一个奇怪的窗口
+-[] 以`Mode.Concurrent_Thread`执行时会跳出一个奇怪的窗口 -> 延迟解决：因为内部逻辑复杂
 TODO:
--[] ReturnType.Image 下的图片无法正常复制
--[] `INFO - The basic window has been created successfully.` 会在关闭时显示而非打开时
+-[] ReturnType.Image 下的图片会丢失背景通道，导致黑色的带透明图片变成全黑
+    -[] 因为使用的是win32clipboard，OS和Linux暂时不支持
 """
 
 from enum import Enum, auto
@@ -123,7 +123,6 @@ class QuickToolBar:
     # 多线程_上交一个任务
     def __threading_submit(self, function):
         self.executor.submit(function)
-        pass
     # *运行系统*
     def run(self):
         self.root.mainloop()
@@ -162,7 +161,7 @@ class QuickToolBar:
         #self.__manager_content_dataset.append
         pass
     # 跳出屏幕信息显示视窗
-    def __LoggingWindow(self, text: str, level: str) -> None:
+    def __LoggingWindow(self, text: str, level: str, followMouse = True) -> None:
         # 根据状态，设置数据
         if level == "succeed":
             color = "green"
@@ -195,20 +194,22 @@ class QuickToolBar:
         # 设置窗口大小
         stringLengthPx = tk_font.nametofont(showText.cget("font")).measure(text) + 10
         stringHeightPx = tk_font.nametofont(showText.cget("font")).metrics("linespace")
-
         showText.pack(side="left", expand=False)
+        
+        # 根据要不要跟随鼠标决定位置
+        if (followMouse):
         # 获取鼠标位置，并生成在鼠标位置
-        mouseX, mouseY = self.root.winfo_pointerxy()
-        window.geometry(
-            str(stringLengthPx) + 'x' + str(stringHeightPx)
-            + f"+{mouseX}+{mouseY}")
-        """
-        # 这是固定位置生成
-        window.geometry(
-            str(stringLengthPx) + 'x' + str(stringHeightPx)
-            + "+0+"
-            + str(int(window.winfo_screenheight() / 2)))
-        """
+            mouseX, mouseY = self.root.winfo_pointerxy()
+            window.geometry(
+                str(stringLengthPx) + 'x' + str(stringHeightPx)
+                + f"+{mouseX}+{mouseY}")
+        else:
+            # 这是固定位置生成
+            window.geometry(
+                str(stringLengthPx) + 'x' + str(stringHeightPx)
+                + "+0+"
+                + str(int(window.winfo_screenheight() / 2)))
+            
         # 在一定时间后自动关闭
         window.after(stayTime, window.destroy)
         
@@ -334,8 +335,12 @@ class QuickToolBar:
                 
                 isReturnCorrect, theType = QuickToolBar.__isReturnCorrect(returnData,returnType)
                 if not isReturnCorrect:
-                    self.__LoggingWindow(f"{name}..............The returned data type is incorrect. "
-                                                f"See the console for detailed information. ", "error")
+                    if mode is Mode.Api:
+                        self.__LoggingWindow(f"{name}..............The returned data type is incorrect. "
+                                                    f"See the console for detailed information. ", "error")
+                    else:
+                        self.__LoggingWindow(f"{name}..............The returned data type is incorrect. "
+                                                f"See the console for detailed information. ", "error" , False)
                     if returnType is ReturnType.Auto:
                         typeslist = []
                         for types in ReturnType:
@@ -358,7 +363,10 @@ class QuickToolBar:
                     pass
                     self.__createWindow_Image(returnData)
                 # 输出正常运行日志
-                self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
+                if mode is Mode.Api:
+                    self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed")
+                else:
+                    self.__LoggingWindow(f"{name}..............has successfully completed running", "succeed", False)
                 logging.debug(f"{name}..............has been executed successfully.")
         def ButtonFunction_submitThreading():
             self.__threading_submit(ButtonFunction)
@@ -388,7 +396,7 @@ class QuickToolBar:
         self.__CenterWindow(window)
         window.deiconify()
         
-    # 返回窗口创建：字符串 ReturnType.Image
+    # 返回窗口创建：图片 ReturnType.Image
     def __createWindow_Image(self,returnData):
         window = tk.Toplevel(self.root)
         window.withdraw()
@@ -418,13 +426,13 @@ class QuickToolBar:
             returnData = returnData.resize((wx, wy), Image.Resampling.BILINEAR)
             logging.info(
                 "The image has been scaled down to within one-third of the screen for better display.")
-        window.deiconify()
         
-        # 创建窗口
+        # 创建显示的图片
         window.tkImage = ImageTk.PhotoImage(returnData)
         imageLabel = tk.Label(window, image=window.tkImage, bg=self.__colors['bg'], fg=self.__colors['fg'])
         imageLabel.pack(side="left", expand=False)
         self.__CenterWindow(window)
+        window.deiconify()
     
     # 返回值判断
     @staticmethod
@@ -501,7 +509,7 @@ class QuickToolBar:
         output = BytesIO()
         image.convert('RGB').save(output, 'BMP')
         data = output.getvalue()[14:]
-        output.close()
+        output.close()  
 
         win32clipboard.OpenClipboard()
         win32clipboard.EmptyClipboard()
