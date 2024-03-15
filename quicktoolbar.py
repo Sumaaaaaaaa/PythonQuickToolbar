@@ -412,6 +412,7 @@ class QuickToolBar:
                                 bg=self.__colors['bg2'], borderwidth=0, highlightthickness=0,
                                 activebackground=self.__colors['bg2'])
         copyButton.pack(side="bottom", expand=False)
+        # 创建保存按钮
         if returnData.size[0]>self.root.winfo_screenwidth()/3:
             wx = self.root.winfo_screenwidth()/3
             wy = wx*returnData.size[1]/returnData.size[0]
@@ -433,6 +434,11 @@ class QuickToolBar:
         imageLabel.pack(side="left", expand=False)
         self.__CenterWindow(window)
         window.deiconify()
+        
+        positionx = int((window.winfo_screenwidth() - window.tkImage.width())/2)
+        positiony = int((window.winfo_screenheight() - window.tkImage.height())/2)
+        window.geometry(f"+{positionx}+{positiony}")
+        
     
     # 返回值判断
     @staticmethod
