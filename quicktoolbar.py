@@ -1,9 +1,12 @@
 """
 FIXME:
 -[] 以`Mode.Concurrent_Thread`执行时会跳出一个奇怪的窗口 -> 延迟解决：因为内部逻辑复杂
-TODO:
 -[] ReturnType.Image 下的图片会丢失背景通道，导致黑色的带透明图片变成全黑
     -[] 因为使用的是win32clipboard，OS和Linux暂时不支持
+TODO:
+-[] 消除按钮灰色效果
+-[] 消除原版边框
+-[] 完成右键菜单的功能嵌入
 """
 
 from enum import Enum, auto
@@ -482,26 +485,57 @@ class QuickToolBar:
                                  bg=self.__colors['bg2'])
         close_button.config(borderwidth=0, highlightthickness=0, activebackground=self.__colors['bg2'])
         close_button.pack(side="top")
+        
         # 创建一个移动窗口用的label
+        # region 随意位置拖动即可移动窗口功能
+        window.dragging = False
+        window.start_x = None
+        window.start_y = None
+        window.pre_x = None
+        window.pre_y = None
+        
+        # 在拖动时禁用所有的组件
+        def DisableAllWidgets(widget):
+            if isinstance(widget, tk.Button):
+                widget['state'] = 'disabled'
+            for child in widget.winfo_children():
+                DisableAllWidgets(child)
+        # 结束时启用所有的组件
+        def EnableAllWidgets(widget):
+            if isinstance(widget, tk.Button):
+                widget['state'] = 'normal'
+            for child in widget.winfo_children():
+                EnableAllWidgets(child)
+        def start_move(event):
+            window.dragging = True
+            window.start_x = event.x
+            window.start_y = event.y
+            window.pre_x, window.pre_y = 0,0
+        def EnableAllWidgets_trigger():
+            EnableAllWidgets(window)
+        def stop_move(event):
+            window.dragging = False
+            window.after(32,EnableAllWidgets_trigger)
+        def on_move(event):
+            if window.dragging:
+                deltax = event.x - window.start_x
+                deltay = event.y - window.start_y
+                window.pre_x += event.x
+                window.pre_y += event.y
+                if(window.pre_x + window.pre_x > 128):
+                    DisableAllWidgets(window)
+                x = window.winfo_x() + deltax
+                y = window.winfo_y() + deltay
+                window.geometry(f"+{x}+{y}")
+        
         moveWindow_label = tk.Label(basicTools_frame, image=self.__moveIcon, bg=self.__colors['bg2'])
         moveWindow_label.pack(side="top")
-
-        def start_move(event):
-            window.window_x = event.x
-            window.window_y = event.y
-
-        def stop_move(event):
-            x0 = window.winfo_x() + event.x - window.window_x
-            y0 = window.winfo_y() + event.y - window.window_y
-            window.geometry(f"+{x0}+{y0}")
-
-        moveWindow_label.bind('<Button-1>', start_move)
-        moveWindow_label.bind('<B1-Motion>', stop_move)
-        #window.bind('<Button-1>', start_move)
-        #window.bind('<B1-Motion>', stop_move)
-        moveWindow_label.pack(side="top")
+        window.bind("<Button-1>", start_move)
+        window.bind("<ButtonRelease-1>", stop_move)
+        window.bind("<B1-Motion>", on_move)
+        # endregion
         
-        # 创建右键面板
+        # region 创建右键面板
         menu = tk.Menu(window,tearoff=0)
         
         def show_menu(e):
@@ -518,9 +552,9 @@ class QuickToolBar:
             menu.add_separator()
             
         menu.add_command(label="Exit", command=window.destroy) 
-        
         # 绑定
         window.bind("<Button-3>", show_menu)
+        # endregion
         
         # 将窗口置于屏幕中央
         self.__CenterWindow(window)
