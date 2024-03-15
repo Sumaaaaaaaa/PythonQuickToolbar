@@ -497,8 +497,34 @@ class QuickToolBar:
 
         moveWindow_label.bind('<Button-1>', start_move)
         moveWindow_label.bind('<B1-Motion>', stop_move)
+        #window.bind('<Button-1>', start_move)
+        #window.bind('<B1-Motion>', stop_move)
         moveWindow_label.pack(side="top")
+        
+        # 创建右键面板
+        menu = tk.Menu(window,tearoff=0)
+        
+        def show_menu(e):
+            menu.post(e.x_root, e.y_root)  # 在点击的位置显示菜单
+            
+        # TODO:若不为主窗口则增加一些如复制，保存的功能
+        if (window is not self.root):
+            def Copy():
+                print("COPY")
+            def Save():
+                print("SAVE")
+            menu.add_command(label="Copy", command=Copy) 
+            menu.add_command(label="Save", command=Save) 
+            menu.add_separator()
+            
+        menu.add_command(label="Exit", command=window.destroy) 
+        
+        # 绑定
+        window.bind("<Button-3>", show_menu)
+        
+        # 将窗口置于屏幕中央
         self.__CenterWindow(window)
+        # 返回
         return basicTools_frame
 
     # 使窗口置于屏幕中央
