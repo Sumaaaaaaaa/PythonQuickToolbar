@@ -12,12 +12,14 @@ from enum import Enum, auto
 import logging
 import tkinter as tk
 from tkinter import font as tk_font
+from tkinter import filedialog
 from PIL import Image, ImageTk
 import math
 from pyperclip import copy
 from io import BytesIO
 import win32clipboard
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 
 class Mode(Enum):
@@ -395,7 +397,27 @@ class QuickToolBar:
         def copyCommand():
             self.__send_to_clipboard(window.returnData)
             self.__LoggingWindow("The content has been copied to the clipboard.", "succeed")
-        self.__DefaultWindowSetting(window,menu_copy=copyCommand)
+        file_types = (
+                        ('PNG files', '*.png'),
+                        ('JPEG files', '*.jpeg'),
+                        ('All files', '*.*')
+                    )
+        def saveCommand():
+            path = filedialog.asksaveasfilename(title='Save as', 
+                                                initialfile=datetime.now().strftime("%Y-%m-%d-%H-%M-%S"),
+                                                filetypes=file_types, 
+                                                defaultextension=file_types)
+            if path == "":
+                return
+            if path[-5:] == '.jpeg':
+                saveImage = window.returnData.convert('RGB')
+                saveImage.save(path)
+                self.__LoggingWindow(f"The image was successfully saved as {path}","succeed",False)
+            else:
+                window.returnData.save(path)
+                self.__LoggingWindow(f"The image was successfully saved as {path}","succeed",False)
+        self.__DefaultWindowSetting(window,menu_copy=copyCommand,menu_save=saveCommand)
+            
         
         # 创建保存按钮
         if returnData.size[0]>self.root.winfo_screenwidth()/3:
@@ -512,7 +534,7 @@ class QuickToolBar:
         if menu_copy is not None:
             menu.add_command(label="Copy", command=menu_copy)
         if menu_save is not None:
-            menu.add_command(label="Copy", command=menu_save) 
+            menu.add_command(label="Save", command=menu_save) 
         if (menu_copy is not None) or (menu_save is not None): 
             menu.add_separator()
         
@@ -544,7 +566,6 @@ class QuickToolBar:
         win32clipboard.EmptyClipboard()
         win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
         win32clipboard.CloseClipboard()
-
 
 # region 快速接入系统
 root = QuickToolBar()

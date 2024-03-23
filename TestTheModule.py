@@ -15,6 +15,5 @@ quicktoolbar.createButton(
     returnType=quicktoolbar.ReturnType.Auto,
     mode = quicktoolbar.Mode.Concurrent_Process
     )
-quicktoolbar
 quicktoolbar.run()
 # 整理变量,创建测试文件，推进
