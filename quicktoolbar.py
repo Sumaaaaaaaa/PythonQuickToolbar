@@ -5,8 +5,7 @@ FIXME:
     -[] 因为使用的是win32clipboard，OS和Linux暂时不支持
 TODO:
 -[] 消除按钮灰色效果
--[] 消除原版边框
--[] 完成右键菜单的功能嵌入
+-[] 图片保存功能
 """
 
 from enum import Enum, auto
@@ -48,19 +47,19 @@ class ReturnType(Enum):
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
+class NoCreationFunction(Exception):
+    def __init__(self) -> None:
+        super().__init__("Without any create function buttons, the window will not be generated.")
+
+
 class QuickToolBar:
     # region 变量/错误
     # 窗口对象
-    __root = None  # 根窗口
+    root = None  # 根窗口
     __manageWindow, __manageWindow_mainFrame = None, None  # 管理窗口
     
     # 窗口数据
     __window_height, __window_length = -1, -1  # 根窗口高度，长度 （位于基本数据变量设置）
-    __basicButtons_size = -1  # 关闭和移动按钮的大小 （位于基本数据变量设置）
-    __tools_length = -1  # 除去关闭和移动区域外的工具栏的长度
-    
-    # icon图片
-    __moveIcon, __closeIcon, __copyIcon = None, None, None  # 移动，关闭，复制Icon图片 （位于基本数据变量设置）
     
     # 创建内容存储
     __root_content_dataset = dict()  # 创建内容数据集
@@ -90,30 +89,14 @@ class QuickToolBar:
         # 设置窗口的高度为屏幕分辨率较短的那一边的1/20，初始长度与高度相同
         screen_size = min(self.root.winfo_screenwidth(), self.root.winfo_screenheight())
         self.__window_height = int(screen_size / 20)
-        # 关闭和移动按钮的大小为主窗口大小的1/3
-        self.__basicButtons_size = math.floor(self.__window_height / 3)
-        # 将主窗口的长度设置为按钮的尺寸
-        self.__window_length = self.__basicButtons_size
-
-        # 设置关闭按钮图片
-        oriImage = Image.open("Icons/close.png")
-        oriImage = oriImage.resize((self.__basicButtons_size, self.__basicButtons_size), Image.Resampling.NEAREST)
-        self.__closeIcon = ImageTk.PhotoImage(oriImage)
-        # 设置移动Label图片
-        oriImage = Image.open("Icons/drag-indicator.png")
-        oriImage = oriImage.resize((self.__basicButtons_size, self.__basicButtons_size), Image.Resampling.NEAREST)
-        self.__moveIcon = ImageTk.PhotoImage(oriImage)
-        # 设置复制按钮图片
-        oriImage = Image.open("Icons/copy.png")
-        oriImage = oriImage.resize((self.__basicButtons_size, self.__basicButtons_size), Image.Resampling.NEAREST)
-        self.__copyIcon = ImageTk.PhotoImage(oriImage)
+        # 将主窗口的长度设置为0
+        self.__window_length = 0
         # endregion
 
         # 标准窗口创建：命名，将其设置为最上层，禁止改变窗口大小，移除标题栏，移动和关闭，置于屏幕中央位置
         self.__DefaultWindowSetting(self.root)
         # 设置窗口尺寸
         self.root.geometry(str(self.__window_length) + "x" + str(self.__window_height))
-    
     
     # 多线程_线程池创建
     def __threading_init(self):
@@ -128,6 +111,9 @@ class QuickToolBar:
         self.executor.submit(function)
     # *运行系统*
     def run(self):
+        # 如果没有添加任何的按钮，则返回错误并不启动窗口
+        if(self.__window_length == 0):
+            raise NoCreationFunction()
         self.root.mainloop()
         logging.info("The basic window has been created successfully.")
         
@@ -381,18 +367,18 @@ class QuickToolBar:
     
     # 返回窗口创建：字符串 ReturnType.String
     def __createWindow_String(self, returnData):
+        # 创建窗口
         window = tk.Toplevel(self.root)
         window.withdraw()
-        basicTools_frame = self.__DefaultWindowSetting(window)
-        # 创建复制按钮
+        
+        # 创建复制功能
         def copyCommand():
             copy(returnData)
             self.__LoggingWindow("The content has been copied to the clipboard.", "succeed")
-
-        copyButton = tk.Button(basicTools_frame, image=self.__copyIcon, command=copyCommand,
-                                bg=self.__colors['bg2'], borderwidth=0, highlightthickness=0,
-                                activebackground=self.__colors['bg2'])
-        copyButton.pack(side="bottom", expand=False)
+        
+        # 设定窗口
+        self.__DefaultWindowSetting(window,menu_copy=copyCommand)
+        
         # 创建窗口
         textLabel = tk.Label(window, text=returnData, bg=self.__colors['bg'], fg=self.__colors['fg'], justify="left")
         textLabel.pack(side="left", expand=False)
@@ -403,18 +389,14 @@ class QuickToolBar:
     def __createWindow_Image(self,returnData):
         window = tk.Toplevel(self.root)
         window.withdraw()
-        basicTools_frame = self.__DefaultWindowSetting(window)
         # 创建复制按钮命令
         window.returnData = returnData
+        
         def copyCommand():
             self.__send_to_clipboard(window.returnData)
             self.__LoggingWindow("The content has been copied to the clipboard.", "succeed")
+        self.__DefaultWindowSetting(window,menu_copy=copyCommand)
         
-        # 创建复制按钮
-        copyButton = tk.Button(basicTools_frame, image=self.__copyIcon, command=copyCommand,
-                                bg=self.__colors['bg2'], borderwidth=0, highlightthickness=0,
-                                activebackground=self.__colors['bg2'])
-        copyButton.pack(side="bottom", expand=False)
         # 创建保存按钮
         if returnData.size[0]>self.root.winfo_screenwidth()/3:
             wx = self.root.winfo_screenwidth()/3
@@ -455,9 +437,8 @@ class QuickToolBar:
             return (returnData is None), None
         return isinstance(returnData,returnType.instance), returnType
             
-    
     # 标准窗口设置：命名，将其设置为最上层，禁止改变窗口大小，移除标题栏，移动和关闭，置于屏幕中央位置 {将会返回basicTools_frame用于添加部件}
-    def __DefaultWindowSetting(self, window):
+    def __DefaultWindowSetting(self, window, menu_copy=None, menu_save=None):
         """
         # 设置窗口的透明度为50%
         self.root.attributes("-alpha", 0.5)
@@ -473,18 +454,6 @@ class QuickToolBar:
         # 移除标题栏
         window.overrideredirect(True)
         # 创建一个用于放置移动和关闭的区域
-        basicTools_frame = tk.Frame(window, height=self.__window_height, bg=self.__colors['bg2'])
-        basicTools_frame.pack(side="right", fill="y")
-
-        # 创建一个关闭窗口用的按钮
-        def close_window():
-            window.destroy()
-            logging.debug("The window has been closed.")
-
-        close_button = tk.Button(basicTools_frame, image=self.__closeIcon, command=close_window,
-                                 bg=self.__colors['bg2'])
-        close_button.config(borderwidth=0, highlightthickness=0, activebackground=self.__colors['bg2'])
-        close_button.pack(side="top")
         
         # 创建一个移动窗口用的label
         # region 随意位置拖动即可移动窗口功能
@@ -528,8 +497,6 @@ class QuickToolBar:
                 y = window.winfo_y() + deltay
                 window.geometry(f"+{x}+{y}")
         
-        moveWindow_label = tk.Label(basicTools_frame, image=self.__moveIcon, bg=self.__colors['bg2'])
-        moveWindow_label.pack(side="top")
         window.bind("<Button-1>", start_move)
         window.bind("<ButtonRelease-1>", stop_move)
         window.bind("<B1-Motion>", on_move)
@@ -541,16 +508,14 @@ class QuickToolBar:
         def show_menu(e):
             menu.post(e.x_root, e.y_root)  # 在点击的位置显示菜单
             
-        # TODO:若不为主窗口则增加一些如复制，保存的功能
-        if (window is not self.root):
-            def Copy():
-                print("COPY")
-            def Save():
-                print("SAVE")
-            menu.add_command(label="Copy", command=Copy) 
-            menu.add_command(label="Save", command=Save) 
+        # 若不为主窗口则增加一些如复制，保存的功能
+        if menu_copy is not None:
+            menu.add_command(label="Copy", command=menu_copy)
+        if menu_save is not None:
+            menu.add_command(label="Copy", command=menu_save) 
+        if (menu_copy is not None) or (menu_save is not None): 
             menu.add_separator()
-            
+        
         menu.add_command(label="Exit", command=window.destroy) 
         # 绑定
         window.bind("<Button-3>", show_menu)
@@ -558,8 +523,6 @@ class QuickToolBar:
         
         # 将窗口置于屏幕中央
         self.__CenterWindow(window)
-        # 返回
-        return basicTools_frame
 
     # 使窗口置于屏幕中央
     @staticmethod

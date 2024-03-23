@@ -7,12 +7,12 @@ import time
 def test():
     time.sleep(1)
     b = Image.open("Icons\\close.png")
-    return "test"
+    return b
 
 quicktoolbar.createButton(
     name = "1",
     command=test,
-    returnType=quicktoolbar.ReturnType.String,
+    returnType=quicktoolbar.ReturnType.Auto,
     mode = quicktoolbar.Mode.Concurrent_Process
     )
 quicktoolbar
