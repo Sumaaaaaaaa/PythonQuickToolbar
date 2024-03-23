@@ -4,15 +4,16 @@ FIXME:
 -[] ReturnType.Image 下的图片会丢失背景通道，导致黑色的带透明图片变成全黑
     -[] 因为使用的是win32clipboard，OS和Linux暂时不支持
 TODO:
--[] 消除按钮灰色效果
--[] 图片保存功能
+-[] 字符串过长字符时的转行
+-[] 消除API模式，全部归到线程上
 """
 
-from enum import Enum, auto
-import logging
 import tkinter as tk
 from tkinter import font as tk_font
 from tkinter import filedialog
+
+from enum import Enum, auto
+import logging
 from PIL import Image, ImageTk
 import math
 from pyperclip import copy
@@ -46,7 +47,7 @@ class ReturnType(Enum):
             return Image.Image
         elif self == ReturnType.Auto:
             return type(None)
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class NoCreationFunction(Exception):
@@ -69,7 +70,7 @@ class QuickToolBar:
     executor = None # 线程池
     
     # 颜色设计
-    __colors = {'bg': 'white', 'fg': 'black', 'bg2': "gray"}  # 颜色设计
+    __colors = {'bg': 'white', 'fg': 'black', 'bg2': 'gray'}  # 颜色设计
 
     class __DuplicateButtonName(NameError):  # 命名重复错误
         def __init__(self, name):
@@ -288,6 +289,9 @@ class QuickToolBar:
             self.__window_length += width
             self.root.geometry(f"{self.__window_length}x{self.__window_height}")
             button.pack(side="left")
+            # 设置按钮按下和移动（禁用）时的颜色
+            button.config(activeforeground=self.__colors['fg'])
+            button.config(disabledforeground=self.__colors['fg'])
             return button
         
         # 无icon传入的情况
@@ -306,6 +310,9 @@ class QuickToolBar:
             # 增加主窗口的大小
             self.__window_length += self.__window_height
             self.root.geometry(f"{self.__window_length}x{self.__window_height}")
+            # 设置按钮按下和移动（禁用）时的颜色
+            button.config(activeforeground=self.__colors['fg'])
+            button.config(disabledforeground=self.__colors['fg'])
             button.pack()
             return button
     
